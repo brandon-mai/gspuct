@@ -6,8 +6,8 @@ from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 from mcts_forest.envs.gym_adapter import GymAdapter
 from mcts_forest.core.gsp_uct import GSPUCT
 from mcts_forest.core.gsp_uct_f import GSPUCTFull
-from mcts_forest.core.gbopd import GBOPD
 from mcts_forest.core.gbop import GBOP
+from mcts_forest.core.ments import MENTS
 from mcts_forest.core.random_agent import RandomAgent
 from mcts_forest.envs.jair_envs import FactoredRiverSwimEnv, FourRoomsEnv, PassengerGridEnv, SysadminRingEnv
 
@@ -28,28 +28,12 @@ class Registry:
             prob = float(prob_match.group(1))
             base_name = name_lower[:prob_match.start()]
             
-            # Special case for sailing: extract size if present (e.g., sailing10x10_0.8)
-            sailing_match = re.match(r'sailing(\d+)x(\d+)', base_name)
-            if sailing_match:
-                kwargs["grid_size"] = int(sailing_match.group(1))
-                base_name = "sailing"
-            
             if base_name in self.envs:
-                if "taxi_rain" in base_name:
-                    kwargs["rainy_probability"] = prob
-                elif "frozenlake_slip" in base_name:
+                if "frozenlake_slip" in base_name:
                     kwargs["success_rate"] = prob 
-                elif base_name == "sailing":
-                    kwargs["wind_keep_probability"] = prob
                 return self.envs[base_name](**kwargs)
-
-        # 2. Handle size-only sailing (e.g., sailing10x10)
-        sailing_match = re.match(r'sailing(\d+)x(\d+)', name_lower)
-        if sailing_match:
-            kwargs["grid_size"] = int(sailing_match.group(1))
-            return self.envs["sailing"](**kwargs)
             
-        # 3. Handle JAIR environments
+        # Handle JAIR environments
         river_match = re.match(r'riverswim_n(\d+)x(\d+)', name_lower)
         if river_match:
             kwargs["num_rivers"] = int(river_match.group(1))
@@ -80,10 +64,6 @@ REGISTRY.register_env("frozenlake", lambda **kwargs: GymAdapter("FrozenLake-v1",
 REGISTRY.register_env("frozenlake_slip", lambda **kwargs: GymAdapter("FrozenLake-v1", desc=get_map(4), is_slippery=True, **kwargs))
 REGISTRY.register_env("frozenlake8x8", lambda **kwargs: GymAdapter("FrozenLake-v1", desc=get_map(8), is_slippery=False, **kwargs))
 REGISTRY.register_env("frozenlake8x8_slip", lambda **kwargs: GymAdapter("FrozenLake-v1", desc=get_map(8), is_slippery=True, **kwargs))
-REGISTRY.register_env("taxi", lambda **kwargs: GymAdapter("Taxi-v4", **kwargs))
-REGISTRY.register_env("taxi_rain", lambda **kwargs: GymAdapter("Taxi-v4", is_rainy=True, **kwargs))
-REGISTRY.register_env("cartpole", lambda **kwargs: GymAdapter("CartPole-v1", **kwargs))
-REGISTRY.register_env("sailing", lambda **kwargs: GymAdapter("Sailing-v0", **kwargs))
 REGISTRY.register_env("riverswim", lambda **kwargs: GymAdapter("FactoredRiverSwim-v0", **kwargs))
 REGISTRY.register_env("fourrooms", lambda **kwargs: GymAdapter("FourRooms-v0", **kwargs))
 REGISTRY.register_env("passenger_grid", lambda **kwargs: GymAdapter("PassengerGrid-v0", **kwargs))
@@ -92,7 +72,7 @@ REGISTRY.register_env("sysadmin", lambda **kwargs: GymAdapter("SysadminRing-v0",
 # 2. Register Solvers
 REGISTRY.register_solver("gsp_uct", lambda env, **kwargs: GSPUCT(env, **kwargs))
 REGISTRY.register_solver("gsp_uct_f", lambda env, **kwargs: GSPUCTFull(env, **kwargs))
-REGISTRY.register_solver("gbopd", lambda env, **kwargs: GBOPD(env, **kwargs))
 REGISTRY.register_solver("gbop", lambda env, **kwargs: GBOP(env, **kwargs))
+REGISTRY.register_solver("ments", lambda env, **kwargs: MENTS(env, **kwargs))
 
 REGISTRY.register_solver("random", lambda env, **kwargs: RandomAgent(env, **kwargs))

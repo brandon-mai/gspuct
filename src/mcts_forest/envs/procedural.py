@@ -9,16 +9,11 @@ def river_swim_step(s, a, nr, nl, tl):
     t = s % (tl + 1)
     if t >= tl:
         return s, 0.0, True
-    
     sid = s // (tl + 1)
-    
-    # Compute reward
     reward = 0.0
     all_at_goal = True
     all_swim_up = True
     goal = nl - 1
-    
-    # Deconstruct state and compute next sid
     next_sid = 0
     factor = 1
     temp_sid = sid
@@ -26,16 +21,10 @@ def river_swim_step(s, a, nr, nl, tl):
         pos = temp_sid % nl
         temp_sid //= nl
         act = (a >> i) & 1
-        
-        # Individual rewards
         if pos == 0 and act == 0: reward += 0.1
         if pos == goal and act == 1: reward += 1.0
-        
-        # Bonus conditions
         if pos != goal: all_at_goal = False
         if act != 1: all_swim_up = False
-        
-        # Transitions
         next_pos = pos
         if act == 0:
             next_pos = max(0, pos - 1)
@@ -45,18 +34,19 @@ def river_swim_step(s, a, nr, nl, tl):
                 next_pos = 0 if p < 0.4 else 1
             elif pos == goal:
                 next_pos = goal - 1 if p < 0.4 else goal
+            elif p < 0.05:
+                next_pos = pos - 1
+            elif p < 0.65:
+                next_pos = pos
             else:
-                if p < 0.05: next_pos = pos - 1
-                elif p < 0.65: next_pos = pos
-                else: next_pos = pos + 1
-        
+                next_pos = pos + 1
         next_sid += next_pos * factor
         factor *= nl
-        
-    if all_at_goal and all_swim_up:
-        reward += float(nr)
-    
+    if all_at_goal and all_swim_up: reward += float(nr)
     reward /= (2.0 * nr)
+    next_t = t + 1
+    next_s = next_sid * (tl + 1) + next_t
+    return next_s, reward, (next_t >= tl)
     next_t = t + 1
     next_s = next_sid * (tl + 1) + next_t
     return next_s, reward, (next_t >= tl)
@@ -305,73 +295,6 @@ def frozen_lake_rollout(s, grid, w, h, slip, limit, gamma):
     for _ in range(limit):
         a = np.random.randint(0, 4)
         curr_s, r, done = frozen_lake_step(curr_s, a, grid, w, h, slip)
-        total_reward += disc * r
-        disc *= gamma
-        if done:
-            break
-    return total_reward
-
-# --- Taxi ---
-
-@njit(cache=True)
-def taxi_step(s, a, rainy_prob):
-    # s: ((taxi_row * 5 + taxi_col) * 5 + pass_idx) * 4 + dest_idx
-    # a: 0=S, 1=N, 2=E, 3=W, 4=Pickup, 5=Dropoff
-    
-    dest_idx = s % 4
-    s //= 4
-    pass_idx = s % 5
-    s //= 5
-    taxi_col = s % 5
-    taxi_row = s // 5
-    
-    locs = np.array([(0, 0), (0, 4), (4, 0), (4, 4)])
-    
-    reward = -1.0
-    done = False
-    
-    # Rainy stochasticity: move fails with prob rainy_prob
-    if a < 4 and np.random.random() < rainy_prob:
-        # Move fails, stay in place
-        pass
-    else:
-        if a == 0: # SOUTH
-            taxi_row = min(taxi_row + 1, 4)
-        elif a == 1: # NORTH
-            taxi_row = max(taxi_row - 1, 0)
-        elif a == 2: # EAST
-            # Walls at (row, col): (0,1), (0,3), (1,1), (1,3), (2,1), (2,3), (3,0), (3,2), (4,0), (4,2)
-            if not ((taxi_row < 3 and (taxi_col == 1 or taxi_col == 3)) or 
-                    (taxi_row >= 3 and (taxi_col == 0 or taxi_col == 2))):
-                taxi_col = min(taxi_col + 1, 4)
-        elif a == 3: # WEST
-            if not ((taxi_row < 3 and (taxi_col == 2 or taxi_col == 4)) or 
-                    (taxi_row >= 3 and (taxi_col == 1 or taxi_col == 3))):
-                taxi_col = max(taxi_col - 1, 0)
-        elif a == 4: # PICKUP
-            if pass_idx < 4 and taxi_row == locs[pass_idx, 0] and taxi_col == locs[pass_idx, 1]:
-                pass_idx = 4
-            else:
-                reward = -10.0
-        elif a == 5: # DROPOFF
-            if pass_idx == 4 and taxi_row == locs[dest_idx, 0] and taxi_col == locs[dest_idx, 1]:
-                pass_idx = dest_idx
-                reward = 20.0
-                done = True
-            else:
-                reward = -10.0
-                
-    next_s = ((taxi_row * 5 + taxi_col) * 5 + pass_idx) * 4 + dest_idx
-    return next_s, reward, done
-
-@njit(cache=True)
-def taxi_rollout(s, rainy_prob, limit, gamma):
-    total_reward = 0.0
-    disc = 1.0
-    curr_s = s
-    for _ in range(limit):
-        a = np.random.randint(0, 6)
-        curr_s, r, done = taxi_step(curr_s, a, rainy_prob)
         total_reward += disc * r
         disc *= gamma
         if done:

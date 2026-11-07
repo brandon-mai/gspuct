@@ -50,19 +50,10 @@ class GymAdapter(EnvBase):
                     self.terminal_states.add(s)
 
     def get_name(self) -> str:
-        """Returns a cleaned environment name, e.g., frozenlake_slip, taxi."""
+        """Returns a cleaned environment name, e.g., frozenlake_slip."""
         import re
         # Remove versioning -v0, -v1, etc.
         name = re.sub(r'-v\d+$', '', self.env_id).lower()
-        
-        if "taxi" in name:
-            if self.is_rainy:
-                name += "_rain"
-                # If rainy_probability is set and not default (0.8), add it to name
-                prob = getattr(self.env, "rainy_probability", 0.8)
-                if abs(prob - 0.8) > 1e-6:
-                    name += f"_{prob:.1f}"
-            return name
         
         if "frozenlake" in name:
             # Handle board size and slippery status
@@ -168,11 +159,5 @@ class GymAdapter(EnvBase):
                     grid[i * w + j] = mapping[desc[i, j]]
             params = (grid, w, h, self.is_slippery)
             return frozen_lake_step, frozen_lake_rollout, params
-            
-        if "taxi" in env_name:
-            from mcts_forest.envs.procedural import taxi_step, taxi_rollout
-            prob = getattr(self.env, "rainy_probability", 0.0) if self.is_rainy else 0.0
-            params = (float(prob),)
-            return taxi_step, taxi_rollout, params
             
         raise NotImplementedError(f"Procedural dynamics not implemented for environment: {env_name}")

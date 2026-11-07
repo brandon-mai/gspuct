@@ -65,21 +65,10 @@ def get_solver_class(solver_name: str) -> Any:
     """Heuristic to find the actual class for a solver name to inspect its signature."""
     import mcts_forest.utils.registry as registry_mod
     mapping = {
-        "uct": "UCT",
-        "stochastic_uct": "StochasticUCT",
-        "sp_uct": "SPUCT",
-        "openloop_mcts": "OpenLoopMCTS",
-        "mcgs": "MCGS",
         "gsp_uct": "GSPUCT",
         "gsp_uct_f": "GSPUCTFull",
         "gbop": "GBOP",
-        "gbopd": "GBOPD",
         "ments": "MENTS",
-        "gsp_alphazero": "GSPAlphaZero",
-        "gsp_muzero": "GSPMuZero",
-        "gsp_stochastic_muzero": "GSPStochasticMuZero",
-        "alphazero": "AlphaZero",
-        "muzero": "MuZero"
     }
     class_name = mapping.get(solver_name.lower())
     if class_name:
@@ -130,8 +119,6 @@ def run_episode(env_name, solver_name, sims, seed=None, episode_idx=0, solver_kw
     if terminated and reward > 0:
         success = True
     elif truncated and env_name.lower().startswith("cartpole"):
-        success = True
-    elif terminated and "sailing" in env_name.lower():
         success = True
         
     return total_reward, steps, success, np.mean(search_times) if search_times else 0.0
@@ -286,23 +273,6 @@ def main():
     # Results tracking for final table
     final_results_summary = []
     
-    if any("sailing" in e.lower() for e in envs):
-        # Calculate a quick baseline for Sailing (Always Down-Right)
-        console.print("\n[bold blue]Sailing Baseline (Always DOWN_RIGHT):[/bold blue]")
-        for env_name in envs:
-            if "sailing" in env_name.lower():
-                try:
-                    temp_env = REGISTRY.get_env(env_name)
-                    baseline_rewards = []
-                    for seed in range(args.seeds):
-                        for ep in range(args.episodes):
-                            reset_seed = seed * 1000 + ep
-                            baseline_rewards.append(temp_env.env.get_baseline_reward(reset_seed))
-                    console.print(f"  • [cyan]{env_name}[/cyan]: Baseline Mean Reward = [bold]{np.mean(baseline_rewards):.2f}[/bold]")
-                except:
-                    pass
-        console.print("")
-
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

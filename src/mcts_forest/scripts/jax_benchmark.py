@@ -42,8 +42,6 @@ from mcts_forest.utils.experiment import parse_dict
 from mcts_forest.core.jax_random import jax_random_search
 from mcts_forest.core.jax_spuct import jax_spuct_search
 from mcts_forest.core.jax_mctxf import jax_mctx_search
-from mcts_forest.core.flax_models import FourRoomsNet, Game2048Net
-from flax import serialization
 from mcts_forest.envs.jax_custom_envs import make_custom_fns
 
 console = Console()
@@ -183,7 +181,6 @@ def main():
     parser.add_argument("--output", type=str, default="results", help="Output directory")
     parser.add_argument("--table", action="store_true", help="Generate result_table.txt in markdown format")
     parser.add_argument("--solver_args", type=str, default="{}", help="Solver hyperparameters as dict string")
-    parser.add_argument("--model_checkpoint", type=str, default="", help="Path to model checkpoint msgpack file")
     
     args = parser.parse_args()
     
@@ -251,8 +248,6 @@ def main():
     ) as progress:
         
         overall_task = progress.add_task("[bold cyan]Sweep Progress", total=len(all_experiments))
-        loaded_models_cache = {}
-        
         for i, exp in enumerate(all_experiments):
             env_name, solver_name, sims = exp["env"], exp["solver"], exp["sims"]
             s_kwargs = exp["solver_kwargs"]
@@ -297,32 +292,8 @@ def main():
                 env_disp = "2048"
                 max_steps = 500
                 
-            # Load model parameters if checkpoint provided
             nn_model = None
             nn_params = None
-            if args.model_checkpoint:
-                cache_key = env_name.lower()
-                if cache_key in loaded_models_cache:
-                    nn_model, nn_params = loaded_models_cache[cache_key]
-                else:
-                    if "fourrooms" in env_name.lower():
-                        nn_model = FourRoomsNet(num_actions=num_actions)
-                    else:
-                        nn_model = Game2048Net(num_actions=num_actions)
-                    
-                    # Initialize variables
-                    key_init = jax.random.PRNGKey(0)
-                    _, dummy_obs = reset_fn(key_init)
-                    dummy_batched_obs = jax.tree.map(lambda x: jnp.expand_dims(x, 0), dummy_obs)
-                    nn_params = nn_model.init(key_init, dummy_batched_obs)
-                    
-                    # Load weights
-                    with open(args.model_checkpoint, "rb") as f:
-                        bytes_data = f.read()
-                    nn_params = serialization.from_bytes(nn_params, bytes_data)
-                    console.print(f"[bold green]Loaded model checkpoint from {args.model_checkpoint}[/bold green]")
-                    loaded_models_cache[cache_key] = (nn_model, nn_params)
-                
             if solver_name.lower() == "random":
                 def solver_fn(k, o, s):
                     act = jax_random_search(k, o, s, step_fn, reset_fn, action_mask_fn, reward_norm_fn, state_equal_fn, num_actions)
